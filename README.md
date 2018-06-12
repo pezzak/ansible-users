@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/singleplatform-eng/ansible-users.svg?branch=master)](https://travis-ci.org/singleplatform-eng/ansible-users)
+[![Build Status](https://travis-ci.org/pezzak/ansible-users.svg?branch=master)](https://travis-ci.org/pezzak/ansible-users)
 
 # ansible-users
 
@@ -21,6 +21,10 @@ Role to manage users on a system.
 Add a users variable containing the list of users to add. A good place to put
 this is in `group_vars/all` or `group_vars/groupname` if you only want the
 users to be on certain machines.
+You can set hash_behaviour = merge (see https://docs.ansible.com/ansible/2.4/intro_configuration.html#hash-behaviour)
+in your ansible configuration, add all users in group_vars/all and manage users in
+group_vars/groupname only by state field.
+
 
 The following attributes are required for each user:
 
@@ -43,6 +47,7 @@ The following attributes are required for each user:
 * ssh_key - This should be a list of SSH keys for the user (optional). Each SSH key
   should be included directly and should have no newlines.
 * generate_ssh_key - Whether to generate a SSH key for the user (optional, defaults to no).
+* state - Should be 'present'
 
 In addition, the following items are optional for each user:
 
@@ -52,10 +57,13 @@ In addition, the following items are optional for each user:
 
 Example:
 
+group_vars/all
+
     ---
     users:
-      - username: foo
+      foo:
         name: Foo Barrington
+        state: present
         groups: ['wheel','systemd-journal']
         uid: 1001
         home: /local/home/foo
@@ -64,27 +72,40 @@ Example:
         ssh_key:
           - "ssh-rsa AAAAA.... foo@machine"
           - "ssh-rsa AAAAB.... foo2@machine"
+      bar:
+        name: Bar Man 
+        state: absent
+        groups: ['wheel','systemd-journal']
+        uid: 1002
+        home: /local/home/bar
+        profile: |
+          alias ll='ls -lah'
+        ssh_key:
+          - "ssh-rsa AAAAA.... bar@machine"
+          - "ssh-rsa AAAAB.... bar2@machine"
     groups_to_create:
       - name: developers
         gid: 10000
-    users_deleted:
-      - username: bar
-        name: Bar User
-        uid: 1002
+
+group_vars/groupname
+
+    ---
+    users:
+      bar:
+        state: present
 
 ## Deleting users
 
-The `users_deleted` variable contains a list of users who should no longer be
-in the system, and these will be removed on the next ansible run. The format
-is the same as for users to add, but the only required field is `username`.
+To delete a user you must set 'state' field to 'absent'.
 However, it is recommended that you also keep the `uid` field for reference so
 that numeric user ids are not accidentally reused.
 
 You can optionally choose to remove the user's home directory and mail spool with
 the `remove` parameter, and force removal of files with the `force` parameter.
 
-    users_deleted:
-      - username: bar
+    users:
+      bar:
         uid: 1002
+        state: absent
         remove: yes
         force: yes

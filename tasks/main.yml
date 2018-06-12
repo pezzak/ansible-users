@@ -5,63 +5,60 @@
   tags: ['users','groups','configuration']
 
 - name: Per-user group creation
-  group: name="{{item.username}}"
-         gid="{{item.gid | default(item.uid) | default(omit)}}"
-  with_items: "{{users}}"
-  when: "'group' not in item and users_create_per_user_group"
+  group: name="{{item.key}}"
+         gid="{{item.value.gid | default(item.value.uid) | default(omit)}}"
+  with_dict: "{{users}}"
+  when: "'group' not in item.value and users_create_per_user_group and item.value.state != 'absent'"
   tags: ['users','configuration']
+  no_log: "{{no_log}}"
 
 - name: User creation
   user:
-    name: "{{item.username}}"
-    group: "{{item.group | default(item.username if users_create_per_user_group else users_group)}}"
+    name: "{{item.key}}"
+    group: "{{item.value.group | default(item.key if users_create_per_user_group else users_group)}}"
     # empty string removes user from all secondary groups
-    groups: "{{item.groups | join(',') if 'groups' in item else ''}}"
-    append: "{{item.append | default(omit)}}"
-    shell: "{{item.shell if item.shell is defined else users_default_shell}}"
-    password: "{{item.password if item.password is defined else '!'}}"
-    comment: "{{item.name if item.name is defined else ''}}"
-    uid: "{{item.uid | default(omit)}}"
-    home: "{{ item.home | default('/home/' + item.username) }}"
+    groups: "{{item.value.groups | join(',') if 'groups' in item.value else ''}}"
+    append: "{{item.value.append | default(omit)}}"
+    shell: "{{item.value.shell if item.value.shell is defined else users_default_shell}}"
+    password: "{{item.value.password if item.value.password is defined else '!'}}"
+    comment: "{{item.value.name if item.value.name is defined else ''}}"
+    uid: "{{item.value.uid | default(omit)}}"
+    home: "{{ item.value.home | default('/home/' + item.key) }}"
     createhome: "{{'yes' if users_create_homedirs else 'no'}}"
-    generate_ssh_key: "{{ item.generate_ssh_key | default(omit) }}"
-    update_password: "{{item.update_password | default(omit)}}"
-  with_items: "{{users}}"
+    generate_ssh_key: "{{ item.value.generate_ssh_key | default(omit) }}"
+    update_password: "{{item.value.update_password | default(omit)}}"
+    state: "{{item.value.state}}"
+    remove: "{{item.value.remove | default(omit)}}"
+    force: "{{item.value.force | default(omit)}}"
+  with_dict: "{{users}}"
   tags: ['users','configuration']
+  no_log: "{{no_log}}"
 
 - name: SSH keys
   authorized_key:
-    user: "{{item.0.username}}"
-    key: "{{item.1}}"
-    path: "{{ item.0.home | default('/home/' + item.0.username) }}/.ssh/authorized_keys"
-  with_subelements:
-    - "{{users}}"
-    - ssh_key
-    - skip_missing: yes
+    user: "{{item.key}}"
+    key: "{{item.value.ssh_key | join('\n') if 'ssh_key' in item.value else ''}}"
+  with_dict: "{{users}}"
+  when: item.value.state != 'absent'
   tags: ['users','configuration']
+  no_log: "{{no_log}}"
 
 - name: Setup user profiles
   blockinfile:
-    block: "{{item.profile}}"
-    dest: "{{ item.home | default('/home/' + item.username) }}/.profile"
-    owner: "{{item.username}}"
-    group: "{{item.group | default(item.username if users_create_per_user_group else users_group)}}"
+    block: "{{item.value.profile}}"
+    dest: "{{ item.value.home | default('/home/' + item.key) }}/.profile"
+    owner: "{{item.key}}"
+    group: "{{item.value.group | default(item.key if users_create_per_user_group else users_group)}}"
     mode: 0644
     create: true
-  when: users_create_homedirs and item.profile is defined
-  with_items: "{{users}}"
-
-- name: Deleted user removal
-  user:
-    name: "{{item.username}}"
-    state: absent
-    remove: "{{item.remove | default(omit)}}"
-    force: "{{item.force | default(omit)}}"
-  with_items: "{{users_deleted}}"
+  when: users_create_homedirs and item.value.profile is defined and item.value.state != 'absent'
+  with_dict: "{{users}}"
   tags: ['users','configuration']
+  no_log: "{{no_log}}"
 
 - name: Deleted per-user group removal
-  group: name="{{item.username}}" state=absent
-  with_items: "{{users_deleted}}"
-  when: users_create_per_user_group
+  group: name="{{item.key}}" state=absent
+  with_dict: "{{users}}"
+  when: users_create_per_user_group and item.value.state == 'absent'
   tags: ['users','configuration']
+  no_log: "{{no_log}}"
