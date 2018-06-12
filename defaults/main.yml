@@ -10,9 +10,8 @@ users_default_shell: /bin/bash
 # directories in some other way.
 users_create_homedirs: true
 
-# Lists of users to create and delete
+# Lists of users to create 
 users: []
-users_deleted: []
 
 # List of groups to create
 # Example:
@@ -20,3 +19,5 @@ users_deleted: []
 #     - name: developers
 #       gid: 10000
 groups_to_create: []
+
+no_log: false
